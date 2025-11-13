@@ -1,0 +1,42 @@
+##
+# Docker Compose config file
+##
+
+# Compose project name, to follow Docker tag for deployment environment (production, staging, feature, testing, local)
+# By default, if this is not specified, the directory name is used. The Compose project name is
+# prefixed to all resources such as networks/volumes/services, e.g. my-network/my-volume/my-service
+# will be created as production_my-network/production_my-volume/production-my-service-1 (note
+# underscores, hyphens & numeric suffix), but can be still referenced without the prefix/suffix in
+# this Docker Compose file and within the same Docker network.
+# This can be overridden in docker-compose.override.yml and is useful when deploying multiple
+# instances of the same application on the same machine, e.g. staging & feature, without having to
+# make a copy with new unique resource names such as "my-network-feature". See
+# https://docs.docker.com/compose/compose-file/04-version-and-name/ for more info.
+name: Asset-Recommender
+
+# Networks - do not use default network or set name else Compose project name will not be prefixed
+networks:
+  demo-network:
+
+# Docker volumes - do not set name else Compose project name will not be prefixed
+# Volumes can be accessed on host machine via `Mountpoint` shown in `docker volume inspect <volume>` on Linux
+# or `\\wsl$\docker-desktop-data\version-pack-data\community\docker\volumes\` in File Explorer on Windows (if using WSL)
+volumes:
+  demo-app-log: # application log files stored here if any
+
+# Services - do not set container_name else Compose project name will not be prefixed.
+# All services should be prefixed with "demo-" to prevent conflict with Docker Compose files from other repos
+# See https://github.com/compose-spec/compose-spec/blob/master/spec.md#depends_on for depends_on conditions
+services:
+  db:
+    image: postgres:17-bookworm
+    container_name: postgres_db
+    env_file:
+      - .env
+    expose:
+      - "5432" # expose internally to other containers
+    volumes:
+      # copy from folder initialize_db/ to docker-entrypoint-initdb.d
+      - ./initialize_db:/docker-entrypoint-initdb.d
+      # copy from folder ./data/raw to /data in docker container
+      - ./data/raw:/data
