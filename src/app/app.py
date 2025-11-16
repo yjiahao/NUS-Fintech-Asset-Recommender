@@ -11,8 +11,8 @@ load_dotenv()
 # Connect to Postgres
 def get_connection():
     conn = psycopg2.connect(
-        host="localhost",
-        port=5434,
+        host="db", # changed to db from localhost to connect to "db" in the container
+        port=5432, # changed to port 5432 for use in the container, postgres running on 5432 there
         database=os.getenv("POSTGRES_DB"),
         user=os.getenv("POSTGRES_USER"),
         password=os.getenv("POSTGRES_PASSWORD")
