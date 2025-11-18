@@ -12,7 +12,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ckpt_path = "src/app/neumf_checkpoint.pth"
 
 # Load asset info (ISIN -> assetName with sensible fallbacks)
-ASSET_CSV_PATH = "initialize_db/asset_information.csv"
+ASSET_CSV_PATH = "initialize_db/raw/asset_information.csv"
 isin_to_name = {}
 try:
     _asset_df = pd.read_csv(ASSET_CSV_PATH, dtype=str)
