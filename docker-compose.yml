@@ -40,26 +40,26 @@ services:
       - ./initialize_db:/docker-entrypoint-initdb.d
       # copy from folder ./data/raw to /data in docker container
       - ./data/raw:/data
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    # On localhost, build the image first before running `docker compose`
-    image: asset-recommendation:latest
-    container_name: asset-recommendation-app
-    ports: # use !override if modifying DEMO_PORT_* under `environment` attribute below without modifying .env
-      # Publish ports - external:internal
-      - "7860:7860"
-    volumes:
-      # It is mentioned in https://docs.docker.com/compose/compose-file/13-merge/#unique-resources that
-      # "When merging Compose files, Compose appends new entries that do not violate a uniqueness constraint and
-      # merge entries that share a unique key". The unique key for volumes is the target, not the source, hence
-      # the following can be overridden by docker-compose.override.yml.
-      - demo-app-log:/home/python/app/log
-      - /tmp:/home/python/app/tmp
-    env_file:
-      # This imports all env vars from .env into the Docker container, avoiding the need to copy
-      # .env in Dockerfile. No need to duplicate the list of env vars manually also, unless the
-      # Docker container uses a different name, e.g. POSTGRES_USER=${DEMO_DB_USER}
-      - .env
-    command: poetry run gradio src/app.py # start application
+  # app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   # On localhost, build the image first before running `docker compose`
+  #   image: asset-recommendation:latest
+  #   container_name: asset-recommendation-app
+  #   ports: # use !override if modifying DEMO_PORT_* under `environment` attribute below without modifying .env
+  #     # Publish ports - external:internal
+  #     - "7860:7860"
+  #   volumes:
+  #     # It is mentioned in https://docs.docker.com/compose/compose-file/13-merge/#unique-resources that
+  #     # "When merging Compose files, Compose appends new entries that do not violate a uniqueness constraint and
+  #     # merge entries that share a unique key". The unique key for volumes is the target, not the source, hence
+  #     # the following can be overridden by docker-compose.override.yml.
+  #     - demo-app-log:/home/python/app/log
+  #     - /tmp:/home/python/app/tmp
+  #   env_file:
+  #     # This imports all env vars from .env into the Docker container, avoiding the need to copy
+  #     # .env in Dockerfile. No need to duplicate the list of env vars manually also, unless the
+  #     # Docker container uses a different name, e.g. POSTGRES_USER=${DEMO_DB_USER}
+  #     - .env
+  #   command: poetry run gradio src/app.py # start application
