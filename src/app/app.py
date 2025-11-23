@@ -4,12 +4,18 @@ import psycopg2
 import pandas as pd
 import gradio as gr
 from dotenv import load_dotenv
+from supabase import create_client
 
 from neumf import NeuMF
 import torch
 
 # Load environment variables
 load_dotenv()
+
+# Supabase connection
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # set up device
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -28,9 +34,8 @@ def get_connection():
 
 # Sample test query
 def show_customers():
-    conn = get_connection()
-    df = pd.read_sql("SELECT * FROM customers LIMIT 5;", conn)
-    conn.close()
+    result = supabase.table("customers").select("*").limit(5).execute()
+    df = pd.DataFrame(result.data)
     return df
 
 def recommend_for_user(user_id, model, user2id, item2id, topK=10, device="cpu"):
@@ -62,42 +67,53 @@ def recommend_for_user(user_id, model, user2id, item2id, topK=10, device="cpu"):
     return mapped
 
 def enrich_predictions(mapped):
-    isins = [f"'{item['ISIN']}'" for item in mapped]  # add quotes for SQL strings
-    isins_str = ",".join(isins)
-    query = f"""
-        SELECT 
-            ISIN,
-            asset_name,
-            asset_short_name
-        FROM assets
-        WHERE isin IN ({isins_str});
-    """
-    conn = get_connection()
-    assets_df = pd.read_sql(query, conn)
+    isins = [item['ISIN'] for item in mapped]
+    result = supabase.table("assets").select("isin, asset_name, asset_short_name").in_("isin", isins).execute()
+    assets_df = pd.DataFrame(result.data)
     return assets_df
 
 def get_purchase_history(user_id):
-    conn = get_connection()
-    sql = f'''
-    SELECT 
-        a.asset_name,
-        a.asset_short_name,
-        a.sector,
-        a.industry,
-        m.name AS market_name,
-        t.channel,
-        t.units,
-        t.transaction_type,
-        t.total_value,
-        t.timestamp
-    FROM transactions t
-    JOIN assets a ON t.ISIN = a.ISIN
-    JOIN markets m ON t.market_id = m.market_id
-    WHERE t.customer_id = '{user_id.strip()}'
-    ORDER BY t.timestamp DESC;
-    '''
-    purchase_history = pd.read_sql(sql, conn)
-    conn.close()
+    # Get transactions
+    transactions = supabase.table("transactions").select("*").eq("customer_id", user_id.strip()).execute().data
+    
+    if not transactions:
+        return pd.DataFrame()
+    
+    # Get unique ISINs and market_ids
+    isins = list(set([t["isin"] for t in transactions if t.get("isin")]))
+    market_ids = list(set([t["market_id"] for t in transactions if t.get("market_id")]))
+    
+    # Get assets data
+    assets = supabase.table("assets").select("isin, asset_name, asset_short_name, sector, industry").in_("isin", isins).execute().data
+    assets_dict = {a["isin"]: a for a in assets}
+    
+    # Get markets data
+    markets = supabase.table("markets").select("market_id, name").in_("market_id", market_ids).execute().data
+    markets_dict = {m["market_id"]: m for m in markets}
+    
+    # Join the data
+    flattened_data = []
+    for t in transactions:
+        asset = assets_dict.get(t.get("isin"), {})
+        market = markets_dict.get(t.get("market_id"), {})
+        flattened_data.append({
+            "asset_name": asset.get("asset_name"),
+            "asset_short_name": asset.get("asset_short_name"),
+            "sector": asset.get("sector"),
+            "industry": asset.get("industry"),
+            "market_name": market.get("name"),
+            "channel": t.get("channel"),
+            "units": t.get("units"),
+            "transaction_type": t.get("transaction_type"),
+            "total_value": t.get("total_value"),
+            "timestamp": t.get("timestamp")
+        })
+    
+    # Sort by timestamp descending
+    purchase_history = pd.DataFrame(flattened_data)
+    if not purchase_history.empty:
+        purchase_history = purchase_history.sort_values("timestamp", ascending=False)
+    
     return purchase_history
 
 def main(user_id):
@@ -137,8 +153,8 @@ model.load_state_dict(ckpt["model_state_dict"])
 model.eval()
 
 # load a map from asset id to asset name
-connection = get_connection()
-_asset_df = pd.read_sql("SELECT * FROM assets;", connection)
+result = supabase.table("assets").select("*").execute()
+_asset_df = pd.DataFrame(result.data)
 # Prefer full assetName; fallback to assetShortName; final fallback to ISIN
 name_series = _asset_df["asset_name"].fillna("")  # type: ignore[index]
 short_series = _asset_df.get("asset_short_name", "").fillna("")

@@ -28,18 +28,18 @@ volumes:
 # All services should be prefixed with "demo-" to prevent conflict with Docker Compose files from other repos
 # See https://github.com/compose-spec/compose-spec/blob/master/spec.md#depends_on for depends_on conditions
 services:
-  db:
-    image: postgres:17-bookworm
-    container_name: postgres_db
-    env_file:
-      - .env
-    ports:
-      - "5434:5432" # expose internally to other containers
-    volumes:
-      # copy from folder initialize_db/ to docker-entrypoint-initdb.d
-      - ./initialize_db:/docker-entrypoint-initdb.d
-      # copy from folder ./data/raw to /data in docker container
-      - ./data/raw:/data
+  # db:
+  #   image: postgres:17-bookworm
+  #   container_name: postgres_db
+  #   env_file:
+  #     - .env
+  #   ports:
+  #     - "5434:5432" # expose internally to other containers
+  #   volumes:
+  #     # copy from folder initialize_db/ to docker-entrypoint-initdb.d
+  #     - ./initialize_db:/docker-entrypoint-initdb.d
+  #     # copy from folder ./data/raw to /data in docker container
+  #     - ./data/raw:/data
   app:
     build:
       context: .
